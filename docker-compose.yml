@@ -1,0 +1,9 @@
+services:
+  streamlit:
+    container_name: terrain_web_app
+    build:
+      context: ./app          
+    volumes:
+      - ./app:/app
+    ports:
+      - "8502:8502"
