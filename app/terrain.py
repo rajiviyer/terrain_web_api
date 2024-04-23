@@ -8,6 +8,7 @@ import matplotlib.colors
 import matplotlib.pyplot as plt
 import logging
 import os
+import constants
 
 class Terrain():
     def __init__(self, params:Dict):
@@ -234,43 +235,52 @@ class Terrain():
             
     def evolution(self):
         try:
-            module = "Defining Progress Bar"
-            progress_bar = st.progress(0, "Evolution..Running Frame: 0")
+            module = "Evolution"
+            width_perc = constants.WIDTH_RESIZE_PERC
+            side_perc = (100 - width_perc)/2    
+            _, center_container, _ = st.columns([side_perc, 
+                                                 width_perc, 
+                                                 side_perc])
+            step = "Defining Progress Bar"            
+            progress_bar = center_container.progress(0, "Evolution..Running Frame: 0")
             color_table = self.set_palette()
             print(color_table)
             cm = matplotlib.colors.LinearSegmentedColormap.from_list('geo-smooth', color_table)            
             # create all the images for the video
             random.seed(self.start_seed)
-            module = "Beginning Loop"
+            step = "Beginning Loop"
+            
+            image_placeholder = center_container.empty()
             for frame in range(0, self.Nframes):
-                module = f"Loop {frame}"
-                progress_bar.progress(int((frame+1)/self.Nframes*100), "Evolution..Running Frame")
+                step = f"Loop {frame}"
+                progress_bar.progress(int((frame+1)/self.Nframes*100), f"Evolution..Running Frame {frame+1}")
+                
                 # filename of image in current frame
-                module = f"Loop {frame}, Getting image"
+                step = f"Loop {frame+1}, Getting image"
                 image = \
                     f"{self.image_dir}/{self.image_file_prefix}{frame}{self.image_file_suffix}"
-                module = f"Loop {frame}, Image: {image}" 
+                step = f"Loop {frame}, Image: {image}" 
                 size = (self.n - 1) / 64 
-                module = f"Loop {frame}, Setting figure"
+                step = f"Loop {frame}, Setting figure"
 
                 # create n-by-n pixel fig                
                 plt.figure( figsize=(size, size), dpi=self.dpi )
-                module = f"Loop {frame}, Setting tick params"
+                step = f"Loop {frame}, Setting tick params"
                 plt.tick_params( left=False, 
                                 bottom=False, 
                                 labelleft=False, 
                                 labelbottom=False )
-                module = f"Loop {frame}, Calling Terrain"
+                step = f"Loop {frame}, Calling Terrain"
                 
                 terrain = self.make_terrain(self.n, 
                                             self.ds, 
                                             self.bdry, 
                                             frame )
-                print(terrain.shape)
-                module = f"Loop {frame}, Image show"
+                # print(terrain.shape)
+                step = f"Loop {frame}, Image show"
                 plt.imshow(terrain, cmap=cm )
                 
-                module = f"Loop {frame}, Saving image {image} to file"
+                step = f"Loop {frame}, Saving image {image} to file"
                 
                 # Save to file          
                 plt.savefig(image,
@@ -279,12 +289,16 @@ class Terrain():
                             dpi=self.dpi)
                 
                 plt.close()
-                # st.pyplot(image)
+                step = f"Loop {frame}, Showing image {image}"
+                image_placeholder.image(image)
                 self.flist.append(image)
             logging.info(f"Image List: {self.flist}")
         except Exception as e:
-            logging.error(f"Error in {module}: {str(e)}")
-            st.error(f"Current Dir: {os.getcwd()}")
+            logging.error(f"Module: {module}, Step:{step}, Message: {str(e)}")
+            # st.error(f"Current Dir: {os.getcwd()}")
+        finally:
+            progress_bar.empty()
+            image_placeholder.empty()
                     
     def run(self):
         if self.method == "Evolution":

@@ -1,13 +1,10 @@
 import streamlit as st
+import constants
 import pandas as pd
-# from logging import getLogger
-# from terrain import evolution, morphing, set_palette
 from terrain import Terrain
-#log = getLogger("test")
-#log.error("this is a test")
 import matplotlib.colors
 import matplotlib.pyplot as plt
-# import moviepy.video.io.ImageSequenceClip  # to produce mp4 video
+import moviepy.video.io.ImageSequenceClip  # to produce mp4 video
 
 st.set_page_config(page_title="Terrain Generation",
                    page_icon="",
@@ -29,20 +26,25 @@ def remove_top_margin():
     
 def main():
     remove_top_margin()
-    st.title("Terrain Generation")    
+    width_perc = constants.WIDTH_RESIZE_PERC
+    side_perc = (100 - width_perc)/2    
+    _, center_container, _ = st.columns([side_perc, 
+                                        width_perc, 
+                                        side_perc])    
+    center_container.title("Terrain Generation")    
     side_con = st.sidebar.container()
     
     # used in Gaussian mixture: low weight keeps pixel color little changed
-    weight = 0.2
+    weight = constants.GAUSSIAN_MIXTURE_WEIGHT
     
     # dots per inch (image resolution)
-    dpi = 300
+    dpi = constants.DOTS_PER_INCH
     
     # image dir
-    image_dir = "./data"
+    image_dir = constants.IMAGE_DIR
     
     # Available in morphing method only. False for now
-    col_morphing = False
+    col_morphing = constants.COLUMN_MORPHING
     
     # method: 'Morphing' or 'Evolution'
     method = side_con.selectbox(label = "Method", 
@@ -52,7 +54,8 @@ def main():
     
     # options: 'Storm', 'Terrain' or 'Vincent'
     palette = side_con.selectbox(label = "Palette", 
-                                options = ["Storm", "Terrain", "Vincent"],
+                                options = ["Storm", "Terrain",
+                                           "Vincent"],
                                 key = "palette_elem"
                                 )    
     
@@ -126,13 +129,6 @@ def main():
     run_button = st.sidebar.button("Submit", type="primary")
     
     if run_button:
-        # color_table = set_palette(palette)
-        # cm = matplotlib.colors.LinearSegmentedColormap.from_list('geo-smooth',color_table)
-        # print(f"Nframes: {Nframes}")
-        # if method == 'Evolution':
-        #     evolution(start_seed)
-        # elif method == 'Morphing':
-        #     morphing(start_seed,end_seed)        
         params = {
             "method": method, "palette": palette, "mode": mode,
             "distribution": distribution,  "weight": weight,
@@ -145,8 +141,16 @@ def main():
         try:
             terrain = Terrain(params)
             terrain.run()
-            st.write(f"Run {method} Successful")
+            # output video
+
+            fps = constants.VIDEO_FRAMES_PER_SEC
+            with center_container, st.spinner("Generating Video File..."):
+                clip = \
+                moviepy.video.io.ImageSequenceClip.ImageSequenceClip(terrain.flist, fps=fps)
+                video_file = f"{image_dir}/terrain.mp4"
+                clip.write_videofile(video_file)
+            center_container.video(video_file)
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Error!! {str(e)}")
     
     
