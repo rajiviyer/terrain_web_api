@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import logging
 import os
 import constants
+import time
+import io
+from PIL import Image
 
 class Terrain():
     def __init__(self, params:Dict):
@@ -28,7 +31,7 @@ class Terrain():
         self.image_file_suffix = ".png"
         self.start_seed = params["start_seed"]
         self.end_seed = params["end_seed"]
-        self.col_morphing = params["col_morphing"]
+        # self.col_morphing = params["col_morphing"]
         self.flist = []
         self.rnd_table  = {}
 
@@ -187,121 +190,111 @@ class Terrain():
     def morphing(self):
         # create all the images for the video
         # morphing from 'start' to 'end' image
-        try:
+        # try:
+        module = "Morphing"                    
+        size = (self.n - 1) / 64
+        color_table = self.set_palette()
+        cm = matplotlib.colors.LinearSegmentedColormap.from_list('geo-smooth', color_table)
+        random.seed(self.start_seed)
+        frame=0
+        start_terrain = self.make_terrain(self.n, self.ds, 
+                                            self.bdry, frame)
+        random.seed(self.end_seed)
+        frame=-1
+        end_terrain = self.make_terrain( self.n, self.ds, 
+                                        self.bdry, frame)
+        # if self.col_morphing:
+        #     col_table_start = np.array(set_palette('Terrain'))**1.00 * np.array(set_palette('Vincent'))**0.50
+        #     col_table_end = np.array(set_palette('Terrain'))**1.50
+            
+        for frame in range(0, self.Nframes):
+            img_buf = io.BytesIO()
+            progress_perc = int((frame+1)/self.Nframes*100)
+            A = frame/(self.Nframes - 1)
+            B = 1 - A
+            tmp_terrain_arr = B * start_terrain + A * end_terrain
+            # if self.col_morphing:    # both palettes must have same size
+            #     tmp_col_table = col_table_start**B * col_table_end**A
+            #     tmp_cm = \
+            #         matplotlib.colors.LinearSegmentedColormap.from_list('temp',tmp_col_table)
+            # else:
+            tmp_cm = cm
+            
+            # filename of image in current frame                
+            # image = \
+                # f"{self.image_dir}/{self.image_file_prefix}{frame}{self.image_file_suffix}"
+
+            # create n-by-n pixel fig 
+            plt.figure( figsize=(size, size), dpi=self.dpi )
+            plt.tick_params( left=False, bottom=False,
+                            labelleft=False, labelbottom=False )
+            plt.imshow( tmp_terrain_arr, cmap=tmp_cm )
+            
+            # Save to IO
+            # step = f"Loop {frame}, Saving image to IO"
+            # step = f"Loop {frame}, Saving image {image} to file"        
+            
+            # Save to IO. Use self.image_dir for saving actual images in a file & directory
+            plt.savefig(img_buf,
+                        bbox_inches='tight',
+                        pad_inches=0,
+                        dpi=self.dpi)
+            
+            plt.close()
+            image = Image.open(img_buf)                
+            yield {"progress_perc": progress_perc, 
+                "image": image
+            #    ,"terrain_arr": terrain_arr[:4][:10]
+                }                
+            img_buf.close()
+                             
+    def evolution(self):
+        # try:
+        module = "Evolution"
+        color_table = self.set_palette()
+        print(color_table)
+        cm = matplotlib.colors.LinearSegmentedColormap.from_list('geo-smooth', color_table)            
+        # create all the images for the video
+        random.seed(self.start_seed)
+                
+        for frame in range(0, self.Nframes):
+            img_buf = io.BytesIO()
+            progress_perc = int((frame+1)/self.Nframes*100)
+            
+            # image = \
+            #     f"{self.image_dir}/{self.image_file_prefix}{frame}{self.image_file_suffix}"
             size = (self.n - 1) / 64 
 
-            random.seed(self.start_seed)
-            frame=0
-            start_terrain = self.make_terrain(self.n, self.ds, 
-                                              self.bdry, frame)
-            random.seed(self.end_seed)
-            frame=-1
-            end_terrain = self.make_terrain( self.n, self.ds, 
-                                            self.bdry, frame)
-            progress_bar = st.progress(0, "Morphing..Running Frame: 0")
-            if col_morphing:
-                col_table_start = np.array(set_palette('Terrain'))**1.00 * np.array(set_palette('Vincent'))**0.50
-                col_table_end = np.array(set_palette('Terrain'))**1.50
+            # create n-by-n pixel fig                
+            plt.figure( figsize=(size, size), dpi=self.dpi )
 
-            for frame in range(0, self.Nframes):
-                progress_bar.progress(frame, f"Morphing..Running Frame: {frame}")
-                A = frame/(self.Nframes - 1)
-                B = 1 - A
-                tmp_terrain = B * start_terrain + A * end_terrain
-                if col_morphing:    # both palettes must have same size
-                    tmp_col_table = col_table_start**B * col_table_end**A
-                    tmp_cm = \
-                        matplotlib.colors.LinearSegmentedColormap.from_list('temp',tmp_col_table)
-                else:
-                    tmp_cm = cm
-                
-                # filename of image in current frame                
-                image = \
-                    self.image_dir + self.image_file_prefix + str(frame) + self.image_file_suffix
-                    
-                # create n-by-n pixel fig                    
-                plt.figure( figsize=(size, size), dpi=self.dpi ) 
-                plt.tick_params( left=False, bottom=False,
-                                labelleft=False, labelbottom=False )
-                plt.imshow( tmp_terrain, cmap=tmp_cm )
-                
-                # Save to file            
-                plt.savefig(image,bbox_inches='tight',
-                            pad_inches=0,dpi=self.dpi)  
-                plt.close()
-                self.flist.append(image)   
-        except Exception as e:
-            logging.error(f"Error in {module}: {str(e)}")
+            plt.tick_params( left=False, 
+                            bottom=False, 
+                            labelleft=False, 
+                            labelbottom=False )                            
             
-    def evolution(self):
-        try:
-            module = "Evolution"
-            width_perc = constants.WIDTH_RESIZE_PERC
-            side_perc = (100 - width_perc)/2    
-            _, center_container, _ = st.columns([side_perc, 
-                                                 width_perc, 
-                                                 side_perc])
-            step = "Defining Progress Bar"            
-            progress_bar = center_container.progress(0, "Evolution..Running Frame: 0")
-            color_table = self.set_palette()
-            print(color_table)
-            cm = matplotlib.colors.LinearSegmentedColormap.from_list('geo-smooth', color_table)            
-            # create all the images for the video
-            random.seed(self.start_seed)
-            step = "Beginning Loop"
+            terrain_arr = self.make_terrain(self.n, 
+                                        self.ds, 
+                                        self.bdry, 
+                                        frame )
+            plt.imshow(terrain_arr, cmap=cm )               
+                        
+            # Save to IO. Use self.image_dir for saving actual images in a file & directory
+            plt.savefig(img_buf,
+                        bbox_inches='tight',
+                        pad_inches=0,
+                        dpi=self.dpi)
             
-            image_placeholder = center_container.empty()
-            for frame in range(0, self.Nframes):
-                step = f"Loop {frame}"
-                progress_bar.progress(int((frame+1)/self.Nframes*100), f"Evolution..Running Frame {frame+1}")
-                
-                # filename of image in current frame
-                step = f"Loop {frame+1}, Getting image"
-                image = \
-                    f"{self.image_dir}/{self.image_file_prefix}{frame}{self.image_file_suffix}"
-                step = f"Loop {frame}, Image: {image}" 
-                size = (self.n - 1) / 64 
-                step = f"Loop {frame}, Setting figure"
-
-                # create n-by-n pixel fig                
-                plt.figure( figsize=(size, size), dpi=self.dpi )
-                step = f"Loop {frame}, Setting tick params"
-                plt.tick_params( left=False, 
-                                bottom=False, 
-                                labelleft=False, 
-                                labelbottom=False )
-                step = f"Loop {frame}, Calling Terrain"
-                
-                terrain = self.make_terrain(self.n, 
-                                            self.ds, 
-                                            self.bdry, 
-                                            frame )
-                # print(terrain.shape)
-                step = f"Loop {frame}, Image show"
-                plt.imshow(terrain, cmap=cm )
-                
-                step = f"Loop {frame}, Saving image {image} to file"
-                
-                # Save to file          
-                plt.savefig(image,
-                            bbox_inches='tight',
-                            pad_inches=0,
-                            dpi=self.dpi)
-                
-                plt.close()
-                step = f"Loop {frame}, Showing image {image}"
-                image_placeholder.image(image)
-                self.flist.append(image)
-            logging.info(f"Image List: {self.flist}")
-        except Exception as e:
-            logging.error(f"Module: {module}, Step:{step}, Message: {str(e)}")
-            # st.error(f"Current Dir: {os.getcwd()}")
-        finally:
-            progress_bar.empty()
-            image_placeholder.empty()
+            plt.close()
+            image = Image.open(img_buf)                
+            yield {"progress_perc": progress_perc, 
+                   "image": image
+                #    ,"terrain_arr": terrain_arr[:4][:10]
+                   }
+            img_buf.close()
                     
     def run(self):
         if self.method == "Evolution":
-            self.evolution()
+            return self.evolution()
         else:
-            self.morphing()
+            return self.morphing()
